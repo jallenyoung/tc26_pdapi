@@ -25,8 +25,7 @@ git clone https://github.com/YOUR_USERNAME/tc26_pdapi.git
 cd tc26_pdapi
 
 # 2. Install dependencies
-pip install requests python-dotenv              # for download_activity_logs.py
-pip install tableauhyperapi tableauserverclient  # for publish_activity_logs.py
+pip install -r requirements.txt
 ```
 
 ## Configuration
