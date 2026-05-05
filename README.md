@@ -51,6 +51,8 @@ The script will list available log files from TCM and download them to `./activi
 
 ### Step 2 — Publish to Tableau
 
+> **Note:** `publish_activity_logs.py` is a proof-of-concept intended for demonstration purposes only. Each run creates new extract files rather than appending to existing ones. It will require modification before use in a production environment.
+
 ```bash
 python publish_activity_logs.py
 ```
