@@ -11,14 +11,16 @@ Steps performed:
     3. Wrap the .hyper in a .tdsx archive (TDS + Hyper)
     4. Publish the .tdsx to Tableau Cloud / Tableau Server
 
-Any required values not found in the environment or .env file will be
-prompted for interactively at startup.
+Credentials are loaded from environment variables or a .env file.
+Any required values not found will be prompted for interactively at startup.
 
-Optional env vars (all values can also be entered interactively):
+Required env vars:
     TABLEAU_SERVER_URL   e.g. https://10ax.online.tableau.com
     TABLEAU_SITE_ID      Site content URL ("" = default site)
     TABLEAU_TOKEN_NAME   Personal Access Token name
     TABLEAU_TOKEN_VALUE  Personal Access Token secret
+
+Optional env vars:
     ACTIVITY_LOGS_DIR    Source folder          (default: activity_logs)
     OUTPUT_DIR           Working/output folder  (default: .tableau_output)
     DS_NAME              Published name         (default: TCM Activity Logs)

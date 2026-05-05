@@ -31,31 +31,13 @@ pip install tableauhyperapi tableauserverclient  # for publish_activity_logs.py
 
 ## Configuration
 
-Copy `.env.example` to `.env` and fill in your credentials:
+Copy `.env.example` to `.env` and fill in your values:
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` and set the required values:
-
-```ini
-# Tableau Cloud Manager credentials
-PDC_TENANT_ID="your-tenant-id"
-PDC_PAT_NAME="your-pat-name"
-PDC_PAT_SECRET="your-pat-secret"
-```
-
-Any values not present in `.env` will be prompted for interactively when the scripts run.
-
-**For `publish_activity_logs.py`**, you will also need your Tableau Cloud/Server connection details. These can be set as environment variables or entered at the prompt:
-
-```ini
-TABLEAU_SERVER_URL="https://10ax.online.tableau.com"
-TABLEAU_SITE_ID=""           # leave blank for the default site
-TABLEAU_TOKEN_NAME="your-token-name"
-TABLEAU_TOKEN_VALUE="your-token-value"
-```
+The file is split into two sections — one for each script. Any values left blank will be prompted for interactively at runtime.
 
 ## Usage
 
