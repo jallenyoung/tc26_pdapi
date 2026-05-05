@@ -7,7 +7,7 @@ Installation (one-time):
     pip install requests python-dotenv
 
 Usage:
-    python download_activity_logs_standalone.py
+    python download_activity_logs.py
 
 Credentials are loaded from environment variables (or a .env file):
     PDC_PAT_NAME      Personal Access Token name

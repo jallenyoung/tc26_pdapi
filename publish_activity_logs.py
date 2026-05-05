@@ -2,7 +2,7 @@
 Converts TCM activity log .txt files into a published Tableau data source.
 
 Usage:
-    python samples/activity_logs_to_tableau.py
+    python publish_activity_logs.py
 
 Steps performed:
     1. Parse JSON-lines log files from ACTIVITY_LOGS_DIR → flatten →
