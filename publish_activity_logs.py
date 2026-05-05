@@ -16,7 +16,7 @@ Any required values not found will be prompted for interactively at startup.
 
 Required env vars:
     TABLEAU_SERVER_URL   e.g. https://10ax.online.tableau.com
-    TABLEAU_SITE_ID      Site content URL ("" = default site)
+    TABLEAU_SITE_ID      Site content URL (e.g. mysite)
     TABLEAU_TOKEN_NAME   Personal Access Token name
     TABLEAU_TOKEN_VALUE  Personal Access Token secret
 
@@ -99,10 +99,7 @@ def gather_config() -> dict:
     """Read config from env vars, prompting interactively for anything missing."""
     print("\n--- Tableau connection ---")
     server_url = os.environ.get("TABLEAU_SERVER_URL") or _prompt("Server URL")
-    site_id = os.environ.get(
-        "TABLEAU_SITE_ID",
-        _prompt("Site content URL (leave blank for default site)"),
-    )
+    site_id = os.environ.get("TABLEAU_SITE_ID") or _prompt("Site content URL")
     token_name = os.environ.get("TABLEAU_TOKEN_NAME") or _prompt(
         "Personal Access Token name"
     )
