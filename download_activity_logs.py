@@ -459,6 +459,21 @@ def _parse_selection(raw: str, total: int) -> list[int] | None:
     return sorted(indices)
 
 
+class _Tee:
+    """Write to multiple streams simultaneously (e.g. stdout + log file)."""
+
+    def __init__(self, *streams):
+        self._streams = streams
+
+    def write(self, data: str) -> None:
+        for s in self._streams:
+            s.write(data)
+
+    def flush(self) -> None:
+        for s in self._streams:
+            s.flush()
+
+
 # ---------------------------------------------------------------------------
 # Args
 # ---------------------------------------------------------------------------
@@ -499,6 +514,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         help="Download destination directory. Overrides PDC_OUTPUT_DIR env var.",
+    )
+    parser.add_argument(
+        "--log-dir",
+        help="Directory to write a timestamped log file for this run. "
+             "Each run creates a new file named tcm_download_YYYY-MM-DD_HH-MM-SS.log. "
+             "Example: logs",
     )
     return parser.parse_args()
 
@@ -840,6 +861,15 @@ def main() -> None:
     print("=" * 60)
 
     args = parse_args()
+
+    if args.log_dir:
+        log_dir = Path(args.log_dir)
+        log_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
+        log_path = log_dir / f"tcm_download_{timestamp}.log"
+        _log_fh = open(log_path, "w", encoding="utf-8")
+        sys.stdout = _Tee(sys.stdout, _log_fh)
+        sys.stderr = _Tee(sys.stderr, _log_fh)
 
     tenant_id = os.environ.get("PDC_TENANT_ID") or _prompt("Tenant ID")
     output_dir = Path(

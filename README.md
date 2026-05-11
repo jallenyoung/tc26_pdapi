@@ -58,6 +58,7 @@ By default the script runs interactively, prompting you to choose the log scope 
 | `--start-time <datetime>` | Start of date range (`YYYY-MM-DDTHH:MM:SSZ`). Defaults to yesterday at midnight UTC. |
 | `--end-time <datetime>` | End of date range (`YYYY-MM-DDTHH:MM:SSZ`). Defaults to today at midnight UTC. |
 | `--output-dir <path>` | Download destination. Overrides `PDC_OUTPUT_DIR` env var. |
+| `--log-dir <path>` | Write a timestamped log file for this run to the given directory (e.g. `--log-dir logs`). Each run creates a new file named `tcm_download_YYYY-MM-DD_HH-MM-SS.log`. |
 
 #### Examples
 
@@ -71,8 +72,8 @@ python download_activity_logs.py --scope tenant --event-types all
 # Download specific event types for a site
 python download_activity_logs.py --scope site --site-id <uuid> --event-types background_job,flow
 
-# Fully automated — no prompts (suitable for scheduled/cron use)
-python download_activity_logs.py --scope tenant --event-types all --output-dir ./logs
+# Fully automated — no prompts, with a timestamped log file per run
+python download_activity_logs.py --scope tenant --event-types all --output-dir ./logs --log-dir ./run-logs
 
 # Override the date range
 python download_activity_logs.py --scope tenant --event-types all \
