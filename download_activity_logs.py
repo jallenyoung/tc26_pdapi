@@ -26,6 +26,7 @@ import os
 import re
 import sys
 import getpass
+import argparse
 import logging
 import requests
 
@@ -459,6 +460,50 @@ def _parse_selection(raw: str, total: int) -> list[int] | None:
 
 
 # ---------------------------------------------------------------------------
+# Args
+# ---------------------------------------------------------------------------
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Browse and download Tableau Cloud Manager activity logs."
+    )
+    parser.add_argument(
+        "--scope",
+        choices=["tenant", "site"],
+        default=None,
+        help="Log scope: tenant-level or site-level. Prompts interactively if omitted.",
+    )
+    parser.add_argument(
+        "--site-id",
+        help="Site UUID for site-level logs. Only used when --scope=site. "
+             "If omitted, shows an interactive site picker. "
+             "Also reads from PDC_SITE_ID env var.",
+    )
+    parser.add_argument(
+        "--event-types",
+        default=None,
+        help="Comma-separated event types to download, or 'all'. "
+             "Prompts interactively if omitted. Example: background_job,flow",
+    )
+    parser.add_argument(
+        "--start-time",
+        help="Start time in YYYY-MM-DDTHH:MM:SSZ format. "
+             "Defaults to yesterday at midnight UTC.",
+    )
+    parser.add_argument(
+        "--end-time",
+        help="End time in YYYY-MM-DDTHH:MM:SSZ format. "
+             "Defaults to today at midnight UTC.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        help="Download destination directory. Overrides PDC_OUTPUT_DIR env var.",
+    )
+    return parser.parse_args()
+
+
+# ---------------------------------------------------------------------------
 # Auth
 # ---------------------------------------------------------------------------
 
@@ -478,6 +523,32 @@ def sign_in(server: Server) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _pick_site(server: Server, tenant_id: str) -> Optional[SiteItem]:
+    """Fetch the site list and prompt the user to select one. Returns None on failure."""
+    print("\nFetching sites...", end=" ", flush=True)
+    sites, _ = server.sites.list(tenant_id, request_opts=RequestOptions(page_size=100))
+    print(f"{len(sites)} site(s) found")
+
+    if not sites:
+        return None
+
+    print()
+    for i, site in enumerate(sites, 1):
+        print(f"  {i:>3})  {site.name!r:<30}  {site.content_url}  ({site.status})")
+
+    raw = _prompt("\nSelect site number")
+    try:
+        idx = int(raw) - 1
+        if idx < 0 or idx >= len(sites):
+            raise ValueError
+    except ValueError:
+        return None
+
+    selected = sites[idx]
+    print(f"Using site: {selected.name!r}  ({selected.site_id})")
+    return selected
+
+
 def choose_scope(server: Server, tenant_id: str):
     """
     Ask the user whether they want tenant-level or site-level logs.
@@ -493,45 +564,26 @@ def choose_scope(server: Server, tenant_id: str):
     if choice != "2":
         return "tenant", None
 
-    print("\nFetching sites...", end=" ", flush=True)
-    sites, _ = server.sites.list(tenant_id, request_opts=RequestOptions(page_size=100))
-    print(f"{len(sites)} site(s) found")
-
-    if not sites:
-        print("No sites available. Falling back to tenant-level logs.")
+    site = _pick_site(server, tenant_id)
+    if site is None:
+        print("No sites available or invalid selection. Falling back to tenant-level logs.")
         return "tenant", None
 
-    print()
-    for i, site in enumerate(sites, 1):
-        print(f"  {i:>3})  {site.name!r:<30}  {site.content_url}  ({site.status})")
-
-    raw = _prompt("\nSelect site number")
-    try:
-        idx = int(raw) - 1
-        if idx < 0 or idx >= len(sites):
-            raise ValueError
-    except ValueError:
-        print("Invalid selection. Falling back to tenant-level logs.")
-        return "tenant", None
-
-    selected = sites[idx]
-    print(f"Using site: {selected.name!r}  ({selected.site_id})")
-    return "site", selected
+    return "site", site
 
 
 # ---------------------------------------------------------------------------
-# Date range
+# Date range — defaults to yesterday 00:00:00Z → today 00:00:00Z
 # ---------------------------------------------------------------------------
 
 
-def choose_date_range() -> tuple[str, str]:
-    now = datetime.now(timezone.utc)
-    default_start = (now - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    default_end = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    print("\n--- Date range (UTC, format: YYYY-MM-DDTHH:MM:SSZ) ---")
-    start = _prompt("Start time", default_start)
-    end = _prompt("End time", default_end)
+def get_date_range() -> tuple[str, str]:
+    today_midnight = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    yesterday_midnight = today_midnight - timedelta(days=1)
+    start = yesterday_midnight.strftime("%Y-%m-%dT%H:%M:%SZ")
+    end = today_midnight.strftime("%Y-%m-%dT%H:%M:%SZ")
     return start, end
 
 
@@ -787,9 +839,13 @@ def main() -> None:
     print("  Tableau Cloud Manager — Activity Log Downloader")
     print("=" * 60)
 
+    args = parse_args()
+
     tenant_id = os.environ.get("PDC_TENANT_ID") or _prompt("Tenant ID")
     output_dir = Path(
-        os.environ.get("PDC_OUTPUT_DIR") or _prompt("Output directory", "activity_logs")
+        args.output_dir
+        or os.environ.get("PDC_OUTPUT_DIR")
+        or _prompt("Output directory", "activity_logs")
     )
 
     with Server() as server:
@@ -799,12 +855,49 @@ def main() -> None:
             print(f"\nAuthentication failed: {exc}")
             sys.exit(1)
 
-        scope, site = choose_scope(server, tenant_id)
-        site_id = site.site_id if site else None
-        pod = site.pod_location if site else None
-        site_name = site.name if site else None
+        # Scope
+        site_id = None
+        pod = None
+        site_name = None
+        if args.scope is None:
+            _, site = choose_scope(server, tenant_id)
+            site_id = site.site_id if site else None
+            pod = site.pod_location if site else None
+            site_name = site.name if site else None
+        elif args.scope == "site":
+            raw_site_id = args.site_id or os.environ.get("PDC_SITE_ID")
+            if raw_site_id:
+                print(f"\nFetching site info...", end=" ", flush=True)
+                sites, _ = server.sites.list(tenant_id, request_opts=RequestOptions(page_size=100))
+                match = next((s for s in sites if s.site_id == raw_site_id), None)
+                if match:
+                    site_id = match.site_id
+                    pod = match.pod_location
+                    site_name = match.name
+                    print(f"OK  ({site_name!r})")
+                else:
+                    site_id = raw_site_id
+                    site_name = raw_site_id
+                    print("site not found in list, using ID as name")
+                print(f"Scope: site  ({site_id})")
+            else:
+                selected = _pick_site(server, tenant_id)
+                if selected is None:
+                    print("No sites available or invalid selection. Exiting.")
+                    sys.exit(1)
+                site_id = selected.site_id
+                pod = selected.pod_location
+                site_name = selected.name
+        else:
+            print("\nScope: tenant")
 
-        start_time, end_time = choose_date_range()
+        # Date range
+        start_time, end_time = get_date_range()
+        if args.start_time:
+            start_time = args.start_time
+        if args.end_time:
+            end_time = args.end_time
+        print(f"Date range: {start_time}  →  {end_time}")
 
         try:
             all_files = collect_all_files(
@@ -818,12 +911,46 @@ def main() -> None:
             print("\nNo log files found for the specified time range.")
             sys.exit(0)
 
-        while True:
-            selected = choose_files(all_files)
+        # File selection
+        if args.event_types is None:
+            while True:
+                selected = choose_files(all_files)
 
-            if not selected:
-                print("\nNo files selected. Exiting.")
-                sys.exit(0)
+                if not selected:
+                    print("\nNo files selected. Exiting.")
+                    sys.exit(0)
+
+                try:
+                    download_files(
+                        server,
+                        tenant_id,
+                        site_id,
+                        selected,
+                        output_dir,
+                        pod=pod,
+                        site_name=site_name,
+                    )
+                except TCMRequestError as exc:
+                    print(f"\nDownload failed: {exc}")
+                    sys.exit(1)
+
+                again = _prompt("\nDownload more files? (y/n)", "n")
+                if again.lower() != "y":
+                    break
+        else:
+            if args.event_types.lower() == "all":
+                selected = all_files
+            else:
+                wanted = {et.strip() for et in args.event_types.split(",")}
+                selected = [f for f in all_files if _event_type(f) in wanted]
+                if not selected:
+                    available = sorted({_event_type(f) for f in all_files})
+                    print(f"\nNo files matched event types: {args.event_types}")
+                    print(f"Available: {', '.join(available)}")
+                    sys.exit(0)
+
+            total_size = _fmt_size(sum(f.size for f in selected if f.size))
+            print(f"\n{len(selected)} file(s) selected  ({total_size})")
 
             try:
                 download_files(
@@ -838,10 +965,6 @@ def main() -> None:
             except TCMRequestError as exc:
                 print(f"\nDownload failed: {exc}")
                 sys.exit(1)
-
-            again = _prompt("\nDownload more files? (y/n)", "n")
-            if again.lower() != "y":
-                break
 
 
 if __name__ == "__main__":

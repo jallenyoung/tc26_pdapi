@@ -53,7 +53,7 @@ By default the script runs interactively, prompting you to choose the log scope 
 | Argument | Description |
 | -------- | ----------- |
 | `--scope {tenant,site}` | Log scope. Prompts interactively if omitted. |
-| `--site-id <uuid>` | Site UUID; required when `--scope site`. Also reads from `PDC_SITE_ID` env var. |
+| `--site-id <uuid>` | Site UUID; only used when `--scope site`. If omitted, shows an interactive site picker. Also reads from `PDC_SITE_ID` env var. |
 | `--event-types <types>` | Comma-separated event types to download, or `all`. Prompts interactively if omitted. |
 | `--start-time <datetime>` | Start of date range (`YYYY-MM-DDTHH:MM:SSZ`). Defaults to yesterday at midnight UTC. |
 | `--end-time <datetime>` | End of date range (`YYYY-MM-DDTHH:MM:SSZ`). Defaults to today at midnight UTC. |
