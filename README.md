@@ -43,10 +43,43 @@ The file is split into two sections — one for each script. Any values left bla
 ### Step 1 — Download activity logs
 
 ```bash
-python download_activity_logs.py
+python download_activity_logs.py [options]
 ```
 
 The script will list available log files from TCM and download them to `./activity_logs/` (configurable via `PDC_OUTPUT_DIR`).
+
+By default the script runs interactively, prompting you to choose the log scope and which event types to download. Any of these inputs can be passed as arguments to skip the corresponding prompt — useful for automated or scheduled runs.
+
+| Argument | Description |
+| -------- | ----------- |
+| `--scope {tenant,site}` | Log scope. Prompts interactively if omitted. |
+| `--site-id <uuid>` | Site UUID; required when `--scope site`. Also reads from `PDC_SITE_ID` env var. |
+| `--event-types <types>` | Comma-separated event types to download, or `all`. Prompts interactively if omitted. |
+| `--start-time <datetime>` | Start of date range (`YYYY-MM-DDTHH:MM:SSZ`). Defaults to yesterday at midnight UTC. |
+| `--end-time <datetime>` | End of date range (`YYYY-MM-DDTHH:MM:SSZ`). Defaults to today at midnight UTC. |
+| `--output-dir <path>` | Download destination. Overrides `PDC_OUTPUT_DIR` env var. |
+
+#### Examples
+
+```bash
+# Fully interactive (original behavior)
+python download_activity_logs.py
+
+# Skip scope and file-type prompts — download all tenant logs for yesterday
+python download_activity_logs.py --scope tenant --event-types all
+
+# Download specific event types for a site
+python download_activity_logs.py --scope site --site-id <uuid> --event-types background_job,flow
+
+# Fully automated — no prompts (suitable for scheduled/cron use)
+python download_activity_logs.py --scope tenant --event-types all --output-dir ./logs
+
+# Override the date range
+python download_activity_logs.py --scope tenant --event-types all \
+  --start-time 2026-05-01T00:00:00Z --end-time 2026-05-02T00:00:00Z
+```
+
+When `--scope` or `--event-types` are omitted the script falls back to its interactive menus, so the two modes can be mixed freely.
 
 ### Step 2 — Publish to Tableau
 
